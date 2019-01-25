@@ -1,15 +1,15 @@
-const { createLambda } = require('@now/build-utils/lambda.js');
-const download = require('@now/build-utils/fs/download.js');
-const FileBlob = require('@now/build-utils/file-blob.js');
-const FileFsRef = require('@now/build-utils/file-fs-ref.js');
-const fs = require('fs-extra');
-const glob = require('@now/build-utils/fs/glob.js');
-const path = require('path');
-const rename = require('@now/build-utils/fs/rename.js');
+const { createLambda } = require("@now/build-utils/lambda.js");
+const download = require("@now/build-utils/fs/download.js");
+const FileBlob = require("@now/build-utils/file-blob.js");
+const FileFsRef = require("@now/build-utils/file-fs-ref.js");
+const fs = require("fs-extra");
+const glob = require("@now/build-utils/fs/glob.js");
+const path = require("path");
+const rename = require("@now/build-utils/fs/rename.js");
 const {
   runNpmInstall,
-  runPackageJsonScript,
-} = require('@now/build-utils/fs/run-user-scripts.js');
+  runPackageJsonScript
+} = require("@now/build-utils/fs/run-user-scripts.js");
 
 /** @typedef { import('@now/build-utils/file-ref') } FileRef */
 /** @typedef {{[filePath: string]: FileRef}} Files */
@@ -29,52 +29,52 @@ const {
  */
 async function downloadInstallAndBundle(
   { files, entrypoint, workPath },
-  { npmArguments = [] } = {},
+  { npmArguments = [] } = {}
 ) {
-  const userPath = path.join(workPath, 'user');
-  const nccPath = path.join(workPath, 'ncc');
+  const userPath = path.join(workPath, "user");
+  const nccPath = path.join(workPath, "ncc");
 
-  console.log('downloading user files...');
+  console.log("downloading user files...");
   const downloadedFiles = await download(files, userPath);
 
-  console.log('installing dependencies for user\'s code...');
+  console.log("installing dependencies for user's code...");
   const entrypointFsDirname = path.join(userPath, path.dirname(entrypoint));
   await runNpmInstall(entrypointFsDirname, npmArguments);
 
-  console.log('writing ncc package.json...');
+  console.log("writing ncc package.json...");
   await download(
     {
-      'package.json': new FileBlob({
+      "package.json": new FileBlob({
         data: JSON.stringify({
           dependencies: {
-            '@zeit/ncc': '0.11.0',
-          },
-        }),
-      }),
+            "@zeit/ncc": "0.11.0"
+          }
+        })
+      })
     },
-    nccPath,
+    nccPath
   );
 
-  console.log('installing dependencies for ncc...');
+  console.log("installing dependencies for ncc...");
   await runNpmInstall(nccPath, npmArguments);
   return [downloadedFiles, userPath, nccPath, entrypointFsDirname];
 }
 
 async function compile(workNccPath, downloadedFiles, entrypoint) {
   const input = downloadedFiles[entrypoint].fsPath;
-  const ncc = require(path.join(workNccPath, 'node_modules/@zeit/ncc'));
+  const ncc = require(path.join(workNccPath, "node_modules/@zeit/ncc"));
   const { code, assets } = await ncc(input);
 
   const preparedFiles = {};
   const blob = new FileBlob({ data: code });
   // move all user code to 'user' subdirectory
-  preparedFiles[path.join('user', entrypoint)] = blob;
+  preparedFiles[path.join("user", entrypoint)] = blob;
   // eslint-disable-next-line no-restricted-syntax
   for (const assetName of Object.keys(assets)) {
     const { source: data, permissions: mode } = assets[assetName];
     const blob2 = new FileBlob({ data, mode });
     preparedFiles[
-      path.join('user', path.dirname(entrypoint), assetName)
+      path.join("user", path.dirname(entrypoint), assetName)
     ] = blob2;
   }
 
@@ -82,81 +82,124 @@ async function compile(workNccPath, downloadedFiles, entrypoint) {
 }
 
 exports.config = {
-  maxLambdaSize: '15mb',
+  maxLambdaSize: "15mb"
+};
+
+const filesFromDir = async (workUserPath, dir) => {
+  const distNextPath = path.join(workUserPath, dir);
+  const files = await glob("**", distNextPath, `user/${dir}`);
+  return files;
+};
+
+const filesByDirs = async (workUserPath, dirs) => {
+  const files = await dirs.reduce(async (stackFiles, dir) => {
+    let resStackFiles = await stackFiles;
+    const dirFiles = await filesFromDir(workUserPath, dir);
+
+    resStackFiles = { ...resStackFiles, ...dirFiles };
+
+    return Promise.resolve(resStackFiles);
+  }, Promise.resolve({}));
+
+  return files;
+};
+
+const getDistDir = async (config, workUserPath) => {
+  const distDir = config && config.distDir;
+
+  if (!distDir) return {};
+
+  const isDistDirArray = Array.isArray(distDir);
+
+  const files = isDistDirArray
+    ? await filesByDirs(workUserPath, distDir)
+    : await filesFromDir(workUserPath, distDir);
+
+  return files;
 };
 
 /**
  * @param {BuildParamsType} buildParams
  * @returns {Promise<Files>}
  */
-exports.build = async ({
-  files, entrypoint, config, workPath,
-}) => {
+exports.build = async ({ files, entrypoint, config, workPath }) => {
   const [
     downloadedFiles,
     workUserPath,
     workNccPath,
-    entrypointFsDirname,
+    entrypointFsDirname
   ] = await downloadInstallAndBundle(
     { files, entrypoint, workPath },
-    { npmArguments: ['--prefer-offline'] },
+    { npmArguments: ["--prefer-offline"] }
   );
 
-  console.log('running user script...');
-  await runPackageJsonScript(entrypointFsDirname, 'now-build');
+  console.log("running user script...");
+  await runPackageJsonScript(entrypointFsDirname, "now-build");
 
-  console.log('preparing lambda files...');
+  console.log("preparing lambda files...");
   let preparedFiles;
 
   if (config && config.bundle === false) {
     // move all user code to 'user' subdirectory
-    preparedFiles = await glob('**', workUserPath);
-    preparedFiles = rename(preparedFiles, name => path.join('user', name));
+    preparedFiles = await glob("**", workUserPath);
+    preparedFiles = rename(preparedFiles, name => path.join("user", name));
   } else {
-    console.log('compiling entrypoint with ncc...');
+    console.log("compiling entrypoint with ncc...");
     preparedFiles = await compile(workNccPath, downloadedFiles, entrypoint);
   }
 
-  const launcherPath = path.join(__dirname, 'launcher.js');
-  let launcherData = await fs.readFile(launcherPath, 'utf8');
+  const launcherPath = path.join(__dirname, "launcher.js");
+  let launcherData = await fs.readFile(launcherPath, "utf8");
   launcherData = launcherData.replace(
-    '// PLACEHOLDER',
+    "// PLACEHOLDER",
     [
       'process.chdir("./user");',
-      `require("./${path.join('user', entrypoint)}");`,
-    ].join(' '),
+      `require("./${path.join("user", entrypoint)}");`
+    ].join(" ")
   );
 
   const launcherFiles = {
-    'launcher.js': new FileBlob({ data: launcherData }),
-    'bridge.js': new FileFsRef({ fsPath: require('@now/node-bridge') }),
+    "launcher.js": new FileBlob({ data: launcherData }),
+    "bridge.js": new FileFsRef({ fsPath: require("@now/node-bridge") })
   };
+
+  const distDir = await getDistDir(config, workUserPath);
+
+  // const distNextPath = path.join(workUserPath, dir);
+  const nextConfig = path.join(workUserPath, "next.config.js");
+  // const nextConfigData = await fs.readFile(nextConfig, "utf8");
+  const nextConfigFile = {
+    "user/next.config.js": new FileFsRef({ fsPath: nextConfig })
+  };
+
+  console.log("distDir: ", Object.keys(distDir));
+  console.log("nextConfigFile: ", nextConfigFile);
 
   const lambda = await createLambda({
     files: {
       ...preparedFiles,
       ...launcherFiles,
-      ...(await glob('static/locales/**/*.json', workPath))
+      ...distDir,
+      ...nextConfigFile
     },
-    handler: 'launcher.launcher',
-    runtime: 'nodejs8.10',
+    handler: "launcher.launcher",
+    runtime: "nodejs8.10"
   });
 
   return { [entrypoint]: lambda };
 };
 
-exports.prepareCache = async ({
-  files, entrypoint, workPath, cachePath,
-}) => {
+exports.prepareCache = async ({ files, entrypoint, workPath, cachePath }) => {
   await fs.remove(workPath);
   await downloadInstallAndBundle({ files, entrypoint, workPath: cachePath });
+  console.log("cachePath: ", cachePath);
 
   return {
-    ...(await glob('user/node_modules/**', cachePath)),
-    ...(await glob('user/package-lock.json', cachePath)),
-    ...(await glob('user/yarn.lock', cachePath)),
-    ...(await glob('ncc/node_modules/**', cachePath)),
-    ...(await glob('ncc/package-lock.json', cachePath)),
-    ...(await glob('ncc/yarn.lock', cachePath)),
+    ...(await glob("user/node_modules/**", cachePath)),
+    ...(await glob("user/package-lock.json", cachePath)),
+    ...(await glob("user/yarn.lock", cachePath)),
+    ...(await glob("ncc/node_modules/**", cachePath)),
+    ...(await glob("ncc/package-lock.json", cachePath)),
+    ...(await glob("ncc/yarn.lock", cachePath))
   };
 };
