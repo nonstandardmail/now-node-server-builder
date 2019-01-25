@@ -136,7 +136,7 @@ exports.build = async ({
     files: {
       ...preparedFiles,
       ...launcherFiles,
-      ...(await glob('static/locales/**/*.json', workUserPath))
+      ...(await glob('static/locales/**/*.json', workPath))
     },
     handler: 'launcher.launcher',
     runtime: 'nodejs8.10',
