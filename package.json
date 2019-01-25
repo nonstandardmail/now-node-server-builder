@@ -1,0 +1,42 @@
+{
+  "_from": "@now/node-server",
+  "_id": "@now/node-server@0.4.26",
+  "_inBundle": false,
+  "_integrity": "sha512-I72N9Bm5o0EgJ+uqjQyLAk5i2UHp/jOqSUDTzCUheewM6sTdvpMR/Kkrwu03zBj4nLi5JuxYsCUUou9BGKIqRw==",
+  "_location": "/@now/node-server",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "@now/node-server",
+    "name": "@now/node-server",
+    "escapedName": "@now%2fnode-server",
+    "scope": "@now",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/@now/node-server/-/node-server-0.4.26.tgz",
+  "_shasum": "9b912ed660dfa34f0a700ec013c2af80c7db8a9f",
+  "_spec": "@now/node-server",
+  "_where": "/Users/b.chumichev/Projects/now-node-server-builder",
+  "bundleDependencies": false,
+  "dependencies": {
+    "@now/node-bridge": "^0.1.10",
+    "fs-extra": "7.0.1"
+  },
+  "deprecated": false,
+  "license": "MIT",
+  "name": "@now/node-server",
+  "peerDependencies": {
+    "@now/build-utils": ">=0.0.1"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "version": "0.4.26"
+}
